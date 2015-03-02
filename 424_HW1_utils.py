@@ -113,6 +113,12 @@ def getCommonMissed(path, numfeatures, grounds):
     for f in files[1:]:
         intersect(common, getMisclassified(read_txt_dat(path+f),grounds))
     return common
+    
+ def print_top10(clf):
+    features_list = read_txt_dat(path+'Train/train_emails_vocab_200.txt','r+')
+    features = numpy.asarray(features_list)
+    sorted_coef_indices = sorted(range(len(clf.coef_[0])),key=clf.coef_[0].__getitem__)
+    print features[sorted_coef_ind[-10:]]   
 
 
 # path should have one Train and one Test folder, each of which should
