@@ -95,7 +95,7 @@ def getPredictions(clf, testBow):
     return clf.predict(testBow)
 
 def storePreds(path, yHats, paras, start_time):
-    outfile= open(path+"predictions_"+str(paras)+"_sec="+str(int(time.time()-start_time))+".txt", 'w')
+    outfile= open(path+"predictions_"+str(paras)+"_csec="+str(int(time.time()-start_time))+".txt", 'w')
     outfile.write("\n".join(yHats))
     outfile.close()
 
@@ -117,7 +117,7 @@ def getCommonMissed(path, numfeatures, grounds):
         intersect(common, getMisclassified(read_txt_dat(path+f),grounds))
     return common
     
- def print_top10(clf):
+def print_top10(clf):
     features_list = read_txt_dat(path+'Train/train_emails_vocab_200.txt','r+')
     features = numpy.asarray(features_list)
     sorted_coef_indices = sorted(range(len(clf.coef_[0])),key=clf.coef_[0].__getitem__)
@@ -128,7 +128,7 @@ def make_roc_plot(clf, testBow, testClasses):
     y_score = mult_prob[:,1]
     pos_label = 'Spam'
     fpr,tpr,thresholds = metrics.roc_curve(testClasses,y_score,pos_label)
-    roc_auc = auc(fpr, tpr)
+    roc_auc = metrics.auc(fpr, tpr)
 
     import pylab as pl  
     pl.clf()
@@ -138,7 +138,7 @@ def make_roc_plot(clf, testBow, testClasses):
     pl.ylim([0.0, 1.0])
     pl.xlabel('False Positive Rate')
     pl.ylabel('True Positive Rate')
-    pl.title(‘ROC Curve Multinomial Naive Bayes')
+    pl.title('ROC Curve Multinomial Naive Bayes')
     pl.legend(loc = "lower right")
     pl.show()    
 
@@ -164,10 +164,12 @@ def main(argv):
     SVC = False
     DTree = False
     missedcheck = ""
+    make_roc = False
+    predsf = ''
     start_time = time.time()
 
     try:
-        opts, args = getopt.getopt(argv,"p:o:1:K:bBsSDm:",["path=","ofile=","printvector=","k=","s=","b="])
+        opts, args = getopt.getopt(argv,"p:o:1:K:bBsSDm:ra:",["path=","ofile="])
     except getopt.GetoptError:
         print 'python text_process.py -p <path> -o <outputfile> -v <vocabulary>'
         sys.exit(2)
@@ -175,6 +177,11 @@ def main(argv):
         if opt == '-h':
             print 'text_process.py -p <path> -o <outputfile> -v <vocabulary>'
             sys.exit()
+        # -a <.txt preds file on which to report accuracy>
+        elif opt in "-a":
+            predsf = arg
+        elif opt in "-r":
+            make_roc = True
         elif opt in ("-S","-s"):
             SVC = True
         elif opt in "-m":
@@ -202,60 +209,69 @@ def main(argv):
 #    sys.exit()
     (trainB, trainC, testB, testC) = gather_data(path)
     numfeatures = len(trainB[0])
+
     if missedcheck:
         comm = getCommonMissed(path, missedcheck, read_txt_dat(path+'Test/test_emails_samples_class_0.txt'))
         print comm
         print "%s emails misclassified among all predictions with %s in common." % (len(comm), missedcheck)
+    if predsf:
+        print "%s%% accuracy for %s." % (100*get_acc(read_txt_dat(predsf),testC), predsf)
     if alph > -1:
+        startclassif_time = time.time()
         clf = MultinomialNB(alpha=alph)
         print clf.fit(trainB,trainC)
         yHats = getPredictions(clf, testB)
         print "Naive Bayes with alpha=%s produced accuracy of %s%%." % (alph, \
                             100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeatures=%s_NaiveBayes_alpha=%s" % (numfeatures,alph), start_time)
+        storePreds(path, yHats, "numfeatures=%s_NaiveBayes_alpha=%s" % (numfeatures,alph), startclassif_time)
 
     if K > -1:
         if K>0:
+            startclassif_time = time.time()
             clf = neighbors.KNeighborsClassifier(K,'distance')
             print clf.fit(trainB,trainC)
             yHats = getPredictions(clf, testB)
             print "KNN with K=%s produced accuracy of %s%%." % (K, \
                                             100*get_acc(yHats,testC))
-            storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K), start_time)
+            storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
         
 # 99.42% K=1, 99.44% K=3, 99.36% K=15
         else:
             for K in range(1,15):
+                startclassif_time = time.time()
                 clf = neighbors.KNeighborsClassifier(K,'distance')
                 print clf.fit(trainB,trainC)
                 yHats = getPredictions(clf, testB)
                 print "KNN with K=%s produced accuracy of %s%%." % (K, \
                                             100*get_acc(yHats,testC))
-                storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K), start_time)
+                storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
 
 
     if SVC:
+        startclassif_time = time.time()
         kernel = "linear"
-        clf = svm.SVC(kernel = kernel)
+        clf = svm.SVC(kernel = kernel, probability = True)
         print clf.fit(trainB,trainC)
         print "Using %s support vectors, with %s Not Spam and %s Spam vectors." % \
                 (len(clf.support_vectors_), clf.n_support_[0], clf.n_support_[1])
         yHats = getPredictions(clf, testB)
         print "SVC with %s kernel produced accuracy of %s%%." % (kernel, 100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeatures=%s_SVC_kernel=%s" % (numfeatures,kernel), start_time)
-
-        
+        storePreds(path, yHats, "numfeatures=%s_SVC_kernel=%s" % (numfeatures,kernel), startclassif_time)
+        if make_roc:
+            make_roc_plot(clf, testB, testC)
+    
 #        rfecv = RFECV(estimator=clf, step=1, cv=StratifiedKFold(trainC, 2), scoring='accuracy')
 #        rfecv.fit(trainB, trainC)
 #        print("Optimal number of features for this SVC : %d" % rfecv.n_features_)
 # 99.28% with all default para
 
     if DTree:
+        startclassif_time = time.time()
         clf = tree.DecisionTreeClassifier()
         print clf.fit(trainB,trainC)
         yHats = getPredictions(clf, testB)
         print "Decision Tree produced accuracy of %s%%." % (100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeatures=%s_Dtree" % (numfeatures), start_time)
+        storePreds(path, yHats, "numfeatures=%s_Dtree" % (numfeatures), startclassif_time)
 
         from sklearn.externals.six import StringIO
         import pydot

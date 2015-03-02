@@ -55,13 +55,15 @@ def print_one_vector(myfile, vectornum=0, numofemails=45000):
     return bagofwords[vectornum]
 
 
-def tokenize_corpus(path, train=True):
+def tokenize_corpus(path, train=True, whitespace = False):
     porter = nltk.PorterStemmer() # also lancaster stemmer
     wnl = nltk.WordNetLemmatizer()
     stopWords = stopwords.words("english")
     classes = []
     samples = []
     docs = []
+    if whitespace:
+        wstoken = nltk.RegexpTokenizer('\s+')
     dirs = get_dirs(path)
     if train == True:
         words = {}
@@ -72,17 +74,18 @@ def tokenize_corpus(path, train=True):
             samples.append(f)
             inf = open(path+'/'+dir+'/'+f,'r')
             #            raw = inf.read().decode('latin1') # orlatin1 or ascii or utf8 or utf16
-            # remove noisy characters; tokenize
             msg = email.message_from_file(inf)
             if msg.is_multipart():
                 raw=""
-                if str(f).find("000")>-1:
-                    print str(f) + "multi"
                 for body in msg.get_payload():
                     raw += body.as_string()
             else:
                 raw = msg.get_payload()
+            # remove noisy characters; tokenize
             raw = raw.decode('latin1')
+            # grab whitespace before replacing noisy characters
+            if whitespace:
+                whitetokens = wstoken.tokenize(raw)
             raw = re.sub('[%s]' % ''.join(chars), ' ', raw)
             tokens = word_tokenize(raw)
             # convert to lower case
@@ -98,6 +101,13 @@ def tokenize_corpus(path, train=True):
                         words[t] = words[t]+1
                     except:
                         words[t] = 1
+            # progress report
+            if str(f).find("000")>-1:
+                print "#" + str(f)
+                if whitespace:
+                    print whitetokens
+            if whitespace:
+                tokens = tokens + whitetokens
             docs.append(tokens)
     if train == True:
         return(docs, classes, samples, words)
@@ -141,10 +151,11 @@ def main(argv):
     outputf = ''
     vocabf = ''
     printone = -1
+    token_white_space = False
     start_time = time.time()
 
     try:
-        opts, args = getopt.getopt(argv,"p:o:v:1:",["path=","ofile=","vocabfile=","printvector="])
+        opts, args = getopt.getopt(argv,"p:o:v:1:w",["path=","ofile=","vocabfile="])
     except getopt.GetoptError:
         print 'python text_process.py -p <path> -o <outputfile> -v <vocabulary>'
         sys.exit(2)
@@ -152,6 +163,8 @@ def main(argv):
         if opt == '-h':
             print 'text_process.py -p <path> -o <outputfile> -v <vocabulary>'
             sys.exit()
+        elif opt in "-w":
+            token_white_space = True
         elif opt in ("-1", "--printvector"):
             printone = arg
         elif opt in ("-p", "--path"):
