@@ -10,6 +10,7 @@ import sys
 import getopt
 import codecs
 import time
+import email
 
 from sklearn import neighbors
 from sklearn.naive_bayes import MultinomialNB
@@ -17,6 +18,7 @@ from sklearn import svm
 from sklearn import tree
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.feature_selection import RFECV
+from sklearn import metrics
 
 NUM_TRAIN_EMAILS = 45000
 NUM_TEST_EMAILS = 5000
@@ -113,6 +115,31 @@ def getCommonMissed(path, numfeatures, grounds):
     for f in files[1:]:
         intersect(common, getMisclassified(read_txt_dat(path+f),grounds))
     return common
+    
+ def print_top10(clf):
+    features_list = read_txt_dat(path+'Train/train_emails_vocab_200.txt','r+')
+    features = numpy.asarray(features_list)
+    sorted_coef_indices = sorted(range(len(clf.coef_[0])),key=clf.coef_[0].__getitem__)
+    print features[sorted_coef_ind[-10:]]  
+    
+def make_roc_plot(clf, testBow, testClasses):    
+    mult_prob = clf.predict_proba(testBow)
+    y_score = mult_prob[:,1]
+    pos_label = 'Spam'
+    fpr,tpr,thresholds = metrics.roc_curve(testClasses,y_score,pos_label)
+    roc_auc = auc(fpr, tpr)
+
+    import pylab as pl  
+    pl.clf()
+    pl.plot(fpr, tpr, label = 'ROC curve (area = %0.2f)' % roc_auc)
+    pl.plot([0, 1], [0, 1], 'k--')
+    pl.xlim([0.0, 1.0])
+    pl.ylim([0.0, 1.0])
+    pl.xlabel('False Positive Rate')
+    pl.ylabel('True Positive Rate')
+    pl.title(‘ROC Curve Multinomial Naive Bayes')
+    pl.legend(loc = "lower right")
+    pl.show()    
 
 
 # path should have one Train and one Test folder, each of which should
