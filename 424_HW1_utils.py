@@ -91,8 +91,8 @@ def doPrediction(clf, testBow, testClasses):
 def getPredictions(clf, testBow):
     return clf.predict(testBow)
 
-def storePreds(path, yHats, paras):
-    outfile= open(path+"predictions_"+str(paras)+"_"+str(int(time.time()))+".txt", 'w')
+def storePreds(path, yHats, paras, start_time):
+    outfile= open(path+"predictions_"+str(paras)+"_sec="+str(int(time.time()-start_time))+".txt", 'w')
     outfile.write("\n".join(yHats))
     outfile.close()
 
@@ -177,7 +177,7 @@ def main(argv):
         yHats = getPredictions(clf, testB)
         print "Naive Bayes with alpha=%s produced accuracy of %s%%." % (alph, \
                             100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeatures=%s_NaiveBayes_alpha=%s" % (numfeatures,alph))
+        storePreds(path, yHats, "numfeatures=%s_NaiveBayes_alpha=%s" % (numfeatures,alph), start_time)
 
     if K > -1:
         if K>0:
@@ -186,7 +186,7 @@ def main(argv):
             yHats = getPredictions(clf, testB)
             print "KNN with K=%s produced accuracy of %s%%." % (K, \
                                             100*get_acc(yHats,testC))
-            storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K))
+            storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K), start_time)
         
 # 99.42% K=1, 99.44% K=3, 99.36% K=15
         else:
@@ -196,7 +196,7 @@ def main(argv):
                 yHats = getPredictions(clf, testB)
                 print "KNN with K=%s produced accuracy of %s%%." % (K, \
                                             100*get_acc(yHats,testC))
-                storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K))
+                storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K), start_time)
 
 
     if SVC:
@@ -207,7 +207,7 @@ def main(argv):
                 (len(clf.support_vectors_), clf.n_support_[0], clf.n_support_[1])
         yHats = getPredictions(clf, testB)
         print "SVC with %s kernel produced accuracy of %s%%." % (kernel, 100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeatures=%s_SVC_kernel=%s" % (numfeatures,kernel))
+        storePreds(path, yHats, "numfeatures=%s_SVC_kernel=%s" % (numfeatures,kernel), start_time)
 
         
 #        rfecv = RFECV(estimator=clf, step=1, cv=StratifiedKFold(trainC, 2), scoring='accuracy')
@@ -220,7 +220,7 @@ def main(argv):
         print clf.fit(trainB,trainC)
         yHats = getPredictions(clf, testB)
         print "Decision Tree produced accuracy of %s%%." % (100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeatures=%s_Dtree" % (numfeatures))
+        storePreds(path, yHats, "numfeatures=%s_Dtree" % (numfeatures), start_time)
 
         from sklearn.externals.six import StringIO
         import pydot
