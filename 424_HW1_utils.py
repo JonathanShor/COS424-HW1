@@ -19,6 +19,7 @@ from sklearn import tree
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.feature_selection import RFECV
 from sklearn import metrics
+from sklearn.decomposition import PCA
 
 NUM_TRAIN_EMAILS = 45000
 NUM_TEST_EMAILS = 5000
@@ -141,6 +142,13 @@ def make_roc_plot(clf, testBow, testClasses):
     pl.legend(loc = "lower right")
     pl.show()    
 
+def feature_selection(bagofwords,bagofwords_test)
+    sel = VarianceThreshold(threshold=(0.05))
+    bow_fs=sel.fit_transform(bagofwords)
+    bow_fs_test=bagofwords_test[:,sel.get_support()]
+    clf.fit(bow_fs,labels)
+    bow_fs_test=bagofwords_test[:,sel.get_support()]
+    
 
 # path should have one Train and one Test folder, each of which should
 # have one folder for each class. Class folders should
