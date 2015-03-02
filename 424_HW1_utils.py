@@ -116,7 +116,7 @@ def getCommonMissed(path, numfeatures, grounds):
         intersect(common, getMisclassified(read_txt_dat(path+f),grounds))
     return common
     
- def print_top10(clf):
+def print_top10(clf):
     features_list = read_txt_dat(path+'Train/train_emails_vocab_200.txt','r+')
     features = numpy.asarray(features_list)
     sorted_coef_indices = sorted(range(len(clf.coef_[0])),key=clf.coef_[0].__getitem__)
@@ -137,7 +137,7 @@ def make_roc_plot(clf, testBow, testClasses):
     pl.ylim([0.0, 1.0])
     pl.xlabel('False Positive Rate')
     pl.ylabel('True Positive Rate')
-    pl.title(‘ROC Curve Multinomial Naive Bayes')
+    pl.title('ROC Curve Multinomial Naive Bayes')
     pl.legend(loc = "lower right")
     pl.show()    
 
@@ -156,10 +156,11 @@ def main(argv):
     SVC = False
     DTree = False
     missedcheck = ""
+    make_roc = False
     start_time = time.time()
 
     try:
-        opts, args = getopt.getopt(argv,"p:o:1:K:bBsSDm:",["path=","ofile=","printvector=","k=","s=","b="])
+        opts, args = getopt.getopt(argv,"p:o:1:K:bBsSDm:r",["path=","ofile=","printvector=","k=","s=","b="])
     except getopt.GetoptError:
         print 'python text_process.py -p <path> -o <outputfile> -v <vocabulary>'
         sys.exit(2)
@@ -167,6 +168,8 @@ def main(argv):
         if opt == '-h':
             print 'text_process.py -p <path> -o <outputfile> -v <vocabulary>'
             sys.exit()
+        elif opt in "-r":
+            make_roc = True
         elif opt in ("-S","-s"):
             SVC = True
         elif opt in "-m":
