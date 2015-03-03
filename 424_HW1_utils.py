@@ -142,7 +142,7 @@ def make_roc_plot(clf, testBow, testClasses):
     pl.legend(loc = "lower right")
     pl.show()    
 
-def feature_selection(bagofwords,bagofwords_test)
+def feature_selection(bagofwords,bagofwords_test):
     sel = VarianceThreshold(threshold=(0.05))
     bow_fs=sel.fit_transform(bagofwords)
     bow_fs_test=bagofwords_test[:,sel.get_support()]
@@ -273,12 +273,12 @@ def main(argv):
         print "Decision Tree produced accuracy of %s%%." % (100*get_acc(yHats,testC))
         storePreds(path, yHats, "numfeatures=%s_Dtree" % (numfeatures), startclassif_time)
 
-        from sklearn.externals.six import StringIO
-        import pydot
-        dot_data = StringIO()
-        tree.export_graphviz(clf, out_file=dot_data)
-        graph = pydot.graph_from_dot_data(dot_data.getvalue())
-        graph.write_pdf(path+"DTree.pdf")
+#        from sklearn.externals.six import StringIO
+#        import pydot
+#        dot_data = StringIO()
+#        tree.export_graphviz(clf, out_file=dot_data)
+#        graph = pydot.graph_from_dot_data(dot_data.getvalue())
+#        graph.write_pdf(path+"DTree.pdf")
 
 
 
