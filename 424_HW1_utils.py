@@ -172,7 +172,57 @@ def make_roc_plot(clf, testBow, testClasses, clfIs='Multinomial Naive Bayes'):
     else:
         pl.title('ROC Curve Multinomial Naive Bayes')
     pl.legend(loc = "lower right")
-    pl.show()    
+    pl.show()
+
+
+#A horrible, ugly hack just to het a single graph with all 4 ROC curves
+def make_all_the_roc(clfNB, clfSVC, clfKNN, clfDT, testBow, testClasses): #, clfIs='Multinomial Naive Bayes'):
+    import pylab as pl
+    pl.clf()
+#    if clfIs == 'LSVC':
+        #else:
+    pos_label = 'Spam'
+
+    mult_probNB = clfNB.predict_proba(testBow)
+    y_scoreNB = mult_probNB[:,1]
+    fpr,tpr,thresholds = metrics.roc_curve(testClasses,y_scoreNB,pos_label)
+    roc_auc = metrics.auc(fpr, tpr)
+    pl.plot(fpr, tpr, label = 'NB ROC curve (area = %0.2f)' % roc_auc)
+
+    mult_probSVC = clfSVC.decision_function(testBow)
+    y_scoreSVC = mult_probSVC
+    fpr,tpr,thresholds = metrics.roc_curve(testClasses,y_scoreSVC,pos_label)
+    roc_auc = metrics.auc(fpr, tpr)
+    pl.plot(fpr, tpr, label = 'SVML ROC curve (area = %0.2f)' % roc_auc)
+    
+    mult_probKNN = clfKNN.predict_proba(testBow)
+    y_scoreKNN = mult_probKNN[:,1]
+    fpr,tpr,thresholds = metrics.roc_curve(testClasses,y_scoreKNN,pos_label)
+    roc_auc = metrics.auc(fpr, tpr)
+    pl.plot(fpr, tpr, label = 'KNN ROC curve (area = %0.2f)' % roc_auc)
+    
+    mult_probDT = clfDT.predict_proba(testBow)
+    y_scoreDT = mult_probDT[:,1]
+    fpr,tpr,thresholds = metrics.roc_curve(testClasses,y_scoreDT,pos_label)
+    roc_auc = metrics.auc(fpr, tpr)
+    pl.plot(fpr, tpr, label = 'DT ROC curve (area = %0.2f)' % roc_auc)
+
+    pl.plot([0, 1], [0, 1], 'k--')
+    pl.xlim([0.0, 1.0])
+    pl.ylim([0.0, 1.0])
+    pl.xlabel('False Positive Rate')
+    pl.ylabel('True Positive Rate')
+#    if clfIs == 'LSVC':
+#        pl.title('ROC Curve Linear SVM')
+#    elif clfIs == 'DTree':
+#        pl.title('ROC Curve Decision Tree')
+#    elif clfIs[0:3] == 'KNN':
+#        pl.title('ROC Curve %s' % clfIs)
+#    else:
+    pl.title('ROC Curves -- NB, SVML, KNN, DT')
+    pl.legend(loc = "lower right")
+    pl.show()
+
 
 def feature_selection(bagofwords,bagofwords_test):
     sel = VarianceThreshold(threshold=(0.05))
@@ -195,6 +245,7 @@ def main(argv):
     DTree = False
     missedcheck = ""
     make_roc = False
+    all_the_roc = False
     predsf = ''
     feat_select = False
     doStore = True
@@ -205,12 +256,12 @@ def main(argv):
         opts, args = getopt.getopt(argv,"p:K:b:m:t:a:BsSDRrX",["path="])
     except getopt.GetoptError:
         print 'python text_process.py -p <path> -K <num_neighbors> -b <alpha> \
-                -[mt] <parameters> -a <filename> -[SDRX]'
+                -[mt] <parameters> -a <filename> -[SDrX]'
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
             print 'python text_process.py -p <path> -K <num_neighbors> -b <alpha> \
-                    -[mt] <parameters> -a <filename> -[SDRX]'
+                    -[mt] <parameters> -a <filename> -[SDrX]'
             sys.exit()
         # -a <.txt preds file on which to report accuracy>
         elif opt in "-a":
@@ -218,8 +269,10 @@ def main(argv):
         # -X will stop any prediction dump files from being created
         elif opt in "-X":
             doStore = False
-        elif opt in ("-R","-r"):
+        elif opt in "-r":
             make_roc = True
+        elif opt in "-R":
+            all_the_roc = True
         elif opt in ("-S","-s"):
             SVC = True
         # -m <string to match in -p path dir> all matched files will be
@@ -257,6 +310,18 @@ def main(argv):
     if getStats:
         print "%s produced with requested stats for %s." \
                 % (storePerfStats(path, getStats, testC), getStats)
+# Ugly hack to get all the ROC curves on one graph
+    if all_the_roc:
+        clfNB = MultinomialNB(alpha=1.)
+        print clfNB.fit(trainB,trainC)
+        clfSVC = svm.LinearSVC(tol=0.00001)
+        print clfSVC.fit(trainB,trainC)
+        clfKNN = neighbors.KNeighborsClassifier(3,'distance')
+        print clfKNN.fit(trainB,trainC)
+        clfDT = tree.DecisionTreeClassifier()
+        print clfDT.fit(trainB,trainC)
+        make_all_the_roc(clfNB, clfSVC, clfKNN, clfDT, testB, testC)
+
     if alph > -1:
         startclassif_time = time.time()
         clf = MultinomialNB(alpha=alph)
