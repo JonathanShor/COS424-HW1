@@ -123,9 +123,17 @@ def print_top10(clf, path):
     sorted_coef_indices = sorted(range(len(clf.coef_[0])),key=clf.coef_[0].__getitem__)
     print features[sorted_coef_indices[-10:]]
     print (sorted(clf.coef_[0]))[-10:]
+
+def print_DTreetop10(clf, path):
+    features_list = read_txt_dat(path+'Train/train_emails_vocab_200.txt')
+    features = numpy.asarray(features_list)
+    sorted_imp_indices = sorted(range(len(clf.feature_importances_)),key=clf.feature_importances_.__getitem__)
+    print features[sorted_imp_indices[-10:]]
+    print (sorted(clf.feature_importances_))[-10:]
+
     
-def make_roc_plot(clf, testBow, testClasses, isSVC=False):
-    if isSVC:
+def make_roc_plot(clf, testBow, testClasses, clfIs='Multinomial Naive Bayes'):
+    if clfIs == 'LSVC':
         mult_prob = clf.decision_function(testBow)
         y_score = mult_prob
     else:
@@ -143,7 +151,12 @@ def make_roc_plot(clf, testBow, testClasses, isSVC=False):
     pl.ylim([0.0, 1.0])
     pl.xlabel('False Positive Rate')
     pl.ylabel('True Positive Rate')
-    pl.title('ROC Curve Multinomial Naive Bayes')
+    if clfIs == 'LSVC':
+        pl.title('ROC Curve Linear SVM')
+    elif clfIs == 'DTree':
+        pl.title('ROC Curve Decision Tree')
+    else:
+        pl.title('ROC Curve Multinomial Naive Bayes')
     pl.legend(loc = "lower right")
     pl.show()    
 
@@ -171,6 +184,7 @@ def main(argv):
     missedcheck = ""
     make_roc = False
     predsf = ''
+    feat_select = False
     start_time = time.time()
 
     try:
@@ -240,7 +254,6 @@ def main(argv):
                                             100*get_acc(yHats,testC))
             storePreds(path, yHats, "numfeats=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
         
-# 99.42% K=1, 99.44% K=3, 99.36% K=15
         else:
             for K in range(1,15):
                 startclassif_time = time.time()
@@ -256,7 +269,7 @@ def main(argv):
         startclassif_time = time.time()
         #        kernel = "linear"
         #        clf = svm.SVC(kernel = kernel, probability = True)
-        clf = svm.LinearSVC(tol=0.00005)
+        clf = svm.LinearSVC(tol=0.00001)
         print clf.fit(trainB,trainC)
             #        print "Using %s support vectors, with %s Not Spam and %s Spam vectors." % \
             #    (len(clf.support_vectors_), clf.n_support_[0], clf.n_support_[1])
@@ -267,12 +280,11 @@ def main(argv):
         #print read_txt_dat(path+'Train/train_emails_vocab_200.txt')[4048]
         print_top10(clf, path)
         if make_roc:
-            make_roc_plot(clf, testB, testC, isSVC=True)
-    
-#        rfecv = RFECV(estimator=clf, step=1, cv=StratifiedKFold(trainC, 2), scoring='accuracy')
-#        rfecv.fit(trainB, trainC)
-#        print("Optimal number of features for this SVC : %d" % rfecv.n_features_)
-# 99.28% with all default para
+            make_roc_plot(clf, testB, testC, clfIs='LSVC')
+        if feat_select:
+            rfecv = RFECV(estimator=clf, step=1, cv=StratifiedKFold(trainC, 2), scoring='accuracy')
+            rfecv.fit(trainB, trainC)
+            print("Optimal number of features for this SVC : %d" % rfecv.n_features_)
 
     if DTree:
         startclassif_time = time.time()
@@ -281,6 +293,10 @@ def main(argv):
         yHats = getPredictions(clf, testB)
         print "Decision Tree produced accuracy of %s%%." % (100*get_acc(yHats,testC))
         storePreds(path, yHats, "numfeats=%s_Dtree" % (numfeatures), startclassif_time)
+        print_DTreetop10(clf, path)
+        if make_roc:
+            make_roc_plot(clf, testB, testC, clfIs='DTree')
+
 
 #        from sklearn.externals.six import StringIO
 #        import pydot
