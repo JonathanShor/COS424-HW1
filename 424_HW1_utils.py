@@ -117,15 +117,20 @@ def getCommonMissed(path, numfeatures, grounds):
         intersect(common, getMisclassified(read_txt_dat(path+f),grounds))
     return common
     
-def print_top10(clf):
-    features_list = read_txt_dat(path+'Train/train_emails_vocab_200.txt','r+')
+def print_top10(clf, path):
+    features_list = read_txt_dat(path+'Train/train_emails_vocab_200.txt')
     features = numpy.asarray(features_list)
     sorted_coef_indices = sorted(range(len(clf.coef_[0])),key=clf.coef_[0].__getitem__)
-    print features[sorted_coef_ind[-10:]]  
+    print features[sorted_coef_indices[-10:]]
+    print (sorted(clf.coef_[0]))[-10:]
     
-def make_roc_plot(clf, testBow, testClasses):    
-    mult_prob = clf.predict_proba(testBow)
-    y_score = mult_prob[:,1]
+def make_roc_plot(clf, testBow, testClasses, isSVC=False):
+    if isSVC:
+        mult_prob = clf.decision_function(testBow)
+        y_score = mult_prob
+    else:
+        mult_prob = clf.predict_proba(testBow)
+        y_score = mult_prob[:,1]
     pos_label = 'Spam'
     fpr,tpr,thresholds = metrics.roc_curve(testClasses,y_score,pos_label)
     roc_auc = metrics.auc(fpr, tpr)
@@ -223,7 +228,7 @@ def main(argv):
         yHats = getPredictions(clf, testB)
         print "Naive Bayes with alpha=%s produced accuracy of %s%%." % (alph, \
                             100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeatures=%s_NaiveBayes_alpha=%s" % (numfeatures,alph), startclassif_time)
+        storePreds(path, yHats, "numfeats=%s_NaiveBayes_alpha=%s" % (numfeatures,alph), startclassif_time)
 
     if K > -1:
         if K>0:
@@ -233,7 +238,7 @@ def main(argv):
             yHats = getPredictions(clf, testB)
             print "KNN with K=%s produced accuracy of %s%%." % (K, \
                                             100*get_acc(yHats,testC))
-            storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
+            storePreds(path, yHats, "numfeats=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
         
 # 99.42% K=1, 99.44% K=3, 99.36% K=15
         else:
@@ -244,21 +249,25 @@ def main(argv):
                 yHats = getPredictions(clf, testB)
                 print "KNN with K=%s produced accuracy of %s%%." % (K, \
                                             100*get_acc(yHats,testC))
-                storePreds(path, yHats, "numfeatures=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
+                storePreds(path, yHats, "numfeats=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
 
 
     if SVC:
         startclassif_time = time.time()
-        kernel = "linear"
-        clf = svm.SVC(kernel = kernel, probability = True)
+        #        kernel = "linear"
+        #        clf = svm.SVC(kernel = kernel, probability = True)
+        clf = svm.LinearSVC(tol=0.00005)
         print clf.fit(trainB,trainC)
-        print "Using %s support vectors, with %s Not Spam and %s Spam vectors." % \
-                (len(clf.support_vectors_), clf.n_support_[0], clf.n_support_[1])
+            #        print "Using %s support vectors, with %s Not Spam and %s Spam vectors." % \
+            #    (len(clf.support_vectors_), clf.n_support_[0], clf.n_support_[1])
         yHats = getPredictions(clf, testB)
-        print "SVC with %s kernel produced accuracy of %s%%." % (kernel, 100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeatures=%s_SVC_kernel=%s" % (numfeatures,kernel), startclassif_time)
+        print "LinearSVC produced accuracy of %s%%." % (100*get_acc(yHats,testC))
+        storePreds(path, yHats, "numfeats=%s_LSVC" % (numfeatures), startclassif_time)
+        #        print sorted(range(len(clf.coef_[0])),key=clf.coef_[0].__getitem__)[-10:]
+        #print read_txt_dat(path+'Train/train_emails_vocab_200.txt')[4048]
+        print_top10(clf, path)
         if make_roc:
-            make_roc_plot(clf, testB, testC)
+            make_roc_plot(clf, testB, testC, isSVC=True)
     
 #        rfecv = RFECV(estimator=clf, step=1, cv=StratifiedKFold(trainC, 2), scoring='accuracy')
 #        rfecv.fit(trainB, trainC)
@@ -271,7 +280,7 @@ def main(argv):
         print clf.fit(trainB,trainC)
         yHats = getPredictions(clf, testB)
         print "Decision Tree produced accuracy of %s%%." % (100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeatures=%s_Dtree" % (numfeatures), startclassif_time)
+        storePreds(path, yHats, "numfeats=%s_Dtree" % (numfeatures), startclassif_time)
 
 #        from sklearn.externals.six import StringIO
 #        import pydot
