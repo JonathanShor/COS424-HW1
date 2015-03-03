@@ -53,13 +53,6 @@ def read_bagofwords_dat(myfile, numofemails=NUM_TRAIN_EMAILS):
     bagofwords=numpy.reshape(bagofwords,(numofemails,-1))
     return bagofwords
 
-def print_one_vector(myfile, vectornum=0, numofemails=NUM_TRAIN_EMAILS):
-    bagofwords = numpy.fromfile(myfile, dtype=numpy.uint8, count=-1, sep="")
-    bagofwords=numpy.reshape(bagofwords,(numofemails,-1))
-    print 'Printing feature vector num %s: %s' % (vectornum, bagofwords[vectornum])
-    #    print len(bagofwords[vectornum])
-    return bagofwords[vectornum]
-
 # return list of .txt file created by this or email_process.py
 def read_txt_dat(myfile):
     txtdat = []
@@ -99,13 +92,33 @@ def storePreds(path, yHats, paras, start_time):
     outfile.write("\n".join(yHats))
     outfile.close()
 
+def storePerfStats(path, feats, grounds):
+    files = get_files(path)
+    files = [f for f in files if f.find(feats) > -1]
+    outfile = open(path+"Stats_"+str(feats)[:-1]+".txt",'w')
+    outfile.write("Accuracy\tPrecision\tRecall\tF1\t\tFilename\n")
+    outf = open(path+"Stats_"+str(feats)[:-1]+"SUM.txt",'w')
+    for f in files:
+        yHs = read_txt_dat(path+f)
+        outfile.write("%s%%\t" % (100*get_acc(yHs,grounds)))
+        outfile.write("%s\t\t" % metrics.precision_score([1 if x=='Spam' else 0 for x in grounds], \
+                                                       [1 if x=='Spam' else 0 for x in yHs]))
+        outfile.write("%s\t" % metrics.recall_score([1 if x=='Spam' else 0 for x in grounds], \
+                                                    [1 if x=='Spam' else 0 for x in yHs]))
+        outfile.write("%s\t" % metrics.f1_score([1 if x=='Spam' else 0 for x in grounds], \
+                                                [1 if x=='Spam' else 0 for x in yHs]))
+        outfile.write("%s\n" % f)
+        outf.write("%s\n%s\n" % (f,metrics.classification_report(grounds, yHs)))
+    outfile.close()
+    return path+"Stats_"+str(feats)+".txt"
+
+
 def getMisclassified(yHats, grounds):
     misses = []
     i = 0
     for yh in yHats:
         if yh.lower() != grounds[i][3:grounds[i].rfind("_")].lower():
             misses.append(grounds[i])
-        #            print str(i) + ":" + grounds[i]
         i += 1
     return misses
 
@@ -130,7 +143,6 @@ def print_DTreetop10(clf, path):
     sorted_imp_indices = sorted(range(len(clf.feature_importances_)),key=clf.feature_importances_.__getitem__)
     print features[sorted_imp_indices[-10:]]
     print (sorted(clf.feature_importances_))[-10:]
-
     
 def make_roc_plot(clf, testBow, testClasses, clfIs='Multinomial Naive Bayes'):
     if clfIs == 'LSVC':
@@ -155,6 +167,8 @@ def make_roc_plot(clf, testBow, testClasses, clfIs='Multinomial Naive Bayes'):
         pl.title('ROC Curve Linear SVM')
     elif clfIs == 'DTree':
         pl.title('ROC Curve Decision Tree')
+    elif clfIs[0:3] == 'KNN':
+        pl.title('ROC Curve %s' % clfIs)
     else:
         pl.title('ROC Curve Multinomial Naive Bayes')
     pl.legend(loc = "lower right")
@@ -174,8 +188,6 @@ def feature_selection(bagofwords,bagofwords_test):
 # name).
 def main(argv):
     path = ''
-    outputf = ''
-    vocabf = ''
     printone = -1
     K = -1
     alph = -1.
@@ -185,56 +197,66 @@ def main(argv):
     make_roc = False
     predsf = ''
     feat_select = False
+    doStore = True
+    getStats = ""
     start_time = time.time()
 
     try:
-        opts, args = getopt.getopt(argv,"p:o:1:K:bBsSDm:ra:",["path=","ofile="])
+        opts, args = getopt.getopt(argv,"p:K:b:m:t:a:BsSDRrX",["path="])
     except getopt.GetoptError:
-        print 'python text_process.py -p <path> -o <outputfile> -v <vocabulary>'
+        print 'python text_process.py -p <path> -K <num_neighbors> -b <alpha> \
+                -[mt] <parameters> -a <filename> -[SDRX]'
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'text_process.py -p <path> -o <outputfile> -v <vocabulary>'
+            print 'python text_process.py -p <path> -K <num_neighbors> -b <alpha> \
+                    -[mt] <parameters> -a <filename> -[SDRX]'
             sys.exit()
         # -a <.txt preds file on which to report accuracy>
         elif opt in "-a":
             predsf = arg
-        elif opt in "-r":
+        # -X will stop any prediction dump files from being created
+        elif opt in "-X":
+            doStore = False
+        elif opt in ("-R","-r"):
             make_roc = True
         elif opt in ("-S","-s"):
             SVC = True
+        # -m <string to match in -p path dir> all matched files will be
+        # processed for common misclassified emails
         elif opt in "-m":
             missedcheck = arg
+        # -t <string to match in -p path dir> all matched files will be
+        # processed for performance stats in storePerfStats
+        elif opt in "-t":
+            getStats = arg
         elif opt in ("-D","-d"):
             DTree = True
+        # K = 0 produces KNN for [1-14], exploring the hyperparameter
+        # K > 0 produces KNN for that K
         elif opt in ("-K", "--k"):
             K = int(arg)
         elif opt in ("-b", "--b"):
             alph = float(arg)
         elif opt in ("-B"):
             alph = 1.
-        elif opt in ("-1", "--printvector"):
-            printone = int(arg)
         elif opt in ("-p", "--path"):
             path = arg
-        elif opt in ("-o", "--ofile"):
-            outputf = arg
 
     print 'Path is "', path
-#    print 'Output file name is "', outputf
-#    print 'vocabulary file is "', vocabf
-    if printone > -1:
-        print_one_vector(path+outputf,5)
-#    sys.exit()
     (trainB, trainC, testB, testC) = gather_data(path)
     numfeatures = len(trainB[0])
 
     if missedcheck:
         comm = getCommonMissed(path, missedcheck, read_txt_dat(path+'Test/test_emails_samples_class_0.txt'))
         print comm
-        print "%s emails misclassified among all predictions with %s in common." % (len(comm), missedcheck)
+        print "%s emails misclassified among all predictions with %s in common." \
+                % (len(comm), missedcheck)
     if predsf:
         print "%s%% accuracy for %s." % (100*get_acc(read_txt_dat(predsf),testC), predsf)
+    if getStats:
+        print "%s produced with requested stats for %s." \
+                % (storePerfStats(path, getStats, testC), getStats)
     if alph > -1:
         startclassif_time = time.time()
         clf = MultinomialNB(alpha=alph)
@@ -242,7 +264,9 @@ def main(argv):
         yHats = getPredictions(clf, testB)
         print "Naive Bayes with alpha=%s produced accuracy of %s%%." % (alph, \
                             100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeats=%s_NaiveBayes_alpha=%s" % (numfeatures,alph), startclassif_time)
+        if doStore:
+            storePreds(path, yHats, "numfeats=%s_NaiveBayes_alpha=%s" % (numfeatures,alph), \
+                       startclassif_time)
 
     if K > -1:
         if K>0:
@@ -252,8 +276,12 @@ def main(argv):
             yHats = getPredictions(clf, testB)
             print "KNN with K=%s produced accuracy of %s%%." % (K, \
                                             100*get_acc(yHats,testC))
-            storePreds(path, yHats, "numfeats=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
-        
+            if doStore:
+                storePreds(path, yHats, "numfeats=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
+            if make_roc:
+                make_roc_plot(clf, testB, testC, clfIs='KNN, K=%s' % K)
+
+
         else:
             for K in range(1,15):
                 startclassif_time = time.time()
@@ -262,22 +290,21 @@ def main(argv):
                 yHats = getPredictions(clf, testB)
                 print "KNN with K=%s produced accuracy of %s%%." % (K, \
                                             100*get_acc(yHats,testC))
-                storePreds(path, yHats, "numfeats=%s_KNN_K=%s" % (numfeatures,K), startclassif_time)
+                if doStore:
+                    storePreds(path, yHats, "numfeats=%s_KNN_K=%s" % (numfeatures,K), \
+                               startclassif_time)
 
 
     if SVC:
         startclassif_time = time.time()
-        #        kernel = "linear"
-        #        clf = svm.SVC(kernel = kernel, probability = True)
         clf = svm.LinearSVC(tol=0.00001)
         print clf.fit(trainB,trainC)
             #        print "Using %s support vectors, with %s Not Spam and %s Spam vectors." % \
             #    (len(clf.support_vectors_), clf.n_support_[0], clf.n_support_[1])
         yHats = getPredictions(clf, testB)
         print "LinearSVC produced accuracy of %s%%." % (100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeats=%s_LSVC" % (numfeatures), startclassif_time)
-        #        print sorted(range(len(clf.coef_[0])),key=clf.coef_[0].__getitem__)[-10:]
-        #print read_txt_dat(path+'Train/train_emails_vocab_200.txt')[4048]
+        if doStore:
+            storePreds(path, yHats, "numfeats=%s_LSVC" % (numfeatures), startclassif_time)
         print_top10(clf, path)
         if make_roc:
             make_roc_plot(clf, testB, testC, clfIs='LSVC')
@@ -292,7 +319,8 @@ def main(argv):
         print clf.fit(trainB,trainC)
         yHats = getPredictions(clf, testB)
         print "Decision Tree produced accuracy of %s%%." % (100*get_acc(yHats,testC))
-        storePreds(path, yHats, "numfeats=%s_Dtree" % (numfeatures), startclassif_time)
+        if doStore:
+            storePreds(path, yHats, "numfeats=%s_Dtree" % (numfeatures), startclassif_time)
         print_DTreetop10(clf, path)
         if make_roc:
             make_roc_plot(clf, testB, testC, clfIs='DTree')
